@@ -286,24 +286,10 @@ def render_info_general(df: pd.DataFrame):
 
     st.header("📊 Información general")
 
-    # ---- Pastel (corregido) ----
-    st.subheader("🥧 Distribución general por categoría")
-    resumen = (
-        df['Categoría_UI']
-         .value_counts()
-         .reindex(CAT_UI_ORDER, fill_value=0)
-         .rename_axis('Categoría_UI')
-         .reset_index(name='N')
-    )
-    fig_pie = px.pie(
-        resumen,
-        names='Categoría_UI',
-        values='N',
-        hole=0.35,
-        color='Categoría_UI',
-        color_discrete_map=CAT_UI_COLORS,
-        title="Distribución general por categoría"
-    )
+  # ============================================
+# 📊 Información general
+# ============================================
+
 # ---- Pastel (corregido) ----
 st.subheader("🥧 Distribución general por categoría")
 resumen = (
@@ -327,43 +313,59 @@ fig_pie.update_traces(textposition='inside', texttemplate='%{percent:.1%}')
 fig_pie.update_layout(legend_title_text="Categoría")
 st.plotly_chart(fig_pie, use_container_width=True)
 
-    # ---- Barras apiladas ----
-    st.subheader("🏫 Distribución por carrera y categoría")
-    stacked = (
-        df.groupby([columna_carrera, 'Categoría_UI'], dropna=False)
-          .size().reset_index(name='N')
+# ---- Barras apiladas ----
+st.subheader("🏫 Distribución por carrera y categoría")
+stacked = (
+    df.groupby([columna_carrera, 'Categoría_UI'])
+      .size()
+      .reset_index(name='N')
+)
+stacked['Categoría_UI'] = pd.Categorical(stacked['Categoría_UI'],
+                                         categories=CAT_UI_ORDER,
+                                         ordered=True)
+
+modo = st.radio(
+    "Modo de visualización",
+    ["Proporción (100% apilado)", "Valores absolutos"],
+    horizontal=True, index=0
+)
+
+if modo == "Proporción (100% apilado)":
+    stacked['%'] = stacked.groupby(columna_carrera)['N'] \
+                          .transform(lambda x: x / x.sum() * 100)
+    fig_stacked = px.bar(
+        stacked, x=columna_carrera, y='%',
+        color='Categoría_UI',
+        category_orders={'Categoría_UI': CAT_UI_ORDER},
+        color_discrete_map=CAT_UI_COLORS,
+        barmode='stack',
+        text=stacked['%'].round(1).astype(str) + '%',
+        title="Proporción (%) de estudiantes por carrera"
     )
-    stacked['Categoría_UI'] = pd.Categorical(stacked['Categoría_UI'], categories=CAT_UI_ORDER, ordered=True)
-
-    modo = st.radio(
-        "Modo de visualización",
-        options=["Proporción (100% apilado)", "Valores absolutos"],
-        horizontal=True, index=0
+    fig_stacked.update_layout(
+        yaxis_title="Proporción (%)",
+        xaxis_title="Carrera",
+        xaxis_tickangle=-30
     )
+else:
+    fig_stacked = px.bar(
+        stacked, x=columna_carrera, y='N',
+        color='Categoría_UI',
+        category_orders={'Categoría_UI': CAT_UI_ORDER},
+        color_discrete_map=CAT_UI_COLORS,
+        barmode='stack',
+        text='N',
+        title="Número de estudiantes por carrera"
+    )
+    fig_stacked.update_layout(
+        yaxis_title="Número de estudiantes",
+        xaxis_title="Carrera",
+        xaxis_tickangle=-30
+    )
+    fig_stacked.update_traces(textposition='inside')
 
-    if modo == "Proporción (100% apilado)":
-        stacked['%'] = stacked.groupby(columna_carrera)['N'].transform(lambda x: 0 if x.sum()==0 else (x/x.sum()*100))
-        fig_bar = px.bar(
-            stacked, x=columna_carrera, y='%', color='Categoría_UI',
-            category_orders={'Categoría_UI': CAT_UI_ORDER},
-            color_discrete_map=CAT_UI_COLORS, barmode='stack',
-            text=stacked['%'].round(1).astype(str) + '%',
-            title="Proporción (%) por carrera y categoría"
-        )
-        fig_bar.update_layout(yaxis_title="Proporción (%)", xaxis_title="Carrera", xaxis_tickangle=-30, height=620)
-    else:
-        fig_bar = px.bar(
-            stacked, x=columna_carrera, y='N', color='Categoría_UI',
-            category_orders={'Categoría_UI': CAT_UI_ORDER},
-            color_discrete_map=CAT_UI_COLORS, barmode='stack',
-            text='N', title="Estudiantes por carrera y categoría (valores absolutos)"
-        )
-        fig_bar.update_layout(yaxis_title="Número de estudiantes", xaxis_title="Carrera", xaxis_tickangle=-30, height=620)
-        fig_bar.update_traces(textposition='inside', cliponaxis=False)
-
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    # ---- Violines (Congruente vs Incongruente) ----
+st.plotly_chart(fig_stacked, use_container_width=True)
+# ---- Violines (Congruente vs Incongruente) ----
     st.subheader("🎻 Distribución de puntajes por carrera (Congruente vs Incongruente)")
     score_cols = [f'PUNTAJE_COMBINADO_{a}' for a in AREAS]
     if not all(c in df.columns for c in score_cols):
