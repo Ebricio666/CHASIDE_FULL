@@ -124,12 +124,14 @@ def preprocess_chaside(df: pd.DataFrame) -> pd.DataFrame:
     columna_carrera = '¿A qué carrera desea ingresar?'
     columna_nombre  = 'Ingrese su nombre completo'
 
-    # Sanitizar Sí/No → 1/0
+    # Sanitizar Sí/No → 1/0  (FIX: usar .str.strip().str.lower())
     df_items = (
-        df[columnas_items].astype(str).apply(lambda c: c.strip().lower())
-        .replace({'sí':1,'si':1,'s':1,'1':1,'true':1,'verdadero':1,'x':1,
-                  'no':0,'n':0,'0':0,'false':0,'falso':0,'':'0','nan':0})
-        .apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+        df[columnas_items]
+          .astype(str)
+          .apply(lambda s: s.str.strip().str.lower())
+          .replace({'sí':1,'si':1,'s':1,'1':1,'true':1,'verdadero':1,'x':1,
+                    'no':0,'n':0,'0':0,'false':0,'falso':0,'':'0','nan':0})
+          .apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
     )
     df[columnas_items] = df_items
 
@@ -284,7 +286,7 @@ def render_info_general(df: pd.DataFrame):
 
     st.header("📊 Información general")
 
-    # ---- Pastel corregido ----
+    # ---- Pastel (corregido) ----
     st.subheader("🥧 Distribución general por categoría")
     resumen = (
         df['Categoría_UI']
@@ -361,9 +363,7 @@ def render_info_general(df: pd.DataFrame):
         category_orders={'Categoría_UI': CAT_UI_ORDER},
         title="Distribución de puntajes por carrera"
     )
-    # separadores verticales
-    cats = list(df_v[columna_carrera].dropna().unique())
-    cats_sorted = sorted(cats, key=lambda x: str(x))
+    cats_sorted = sorted(list(df_v[columna_carrera].dropna().unique()), key=lambda x: str(x))
     for i in range(len(cats_sorted)-1):
         fig_violin.add_vline(x=i+0.5, line_width=1, line_dash="dot", line_color="gray")
     fig_violin.update_layout(xaxis_title="Carrera", yaxis_title="Score combinado", xaxis_tickangle=-30, height=720)
@@ -422,7 +422,7 @@ def render_info_individual(df: pd.DataFrame):
     if not amar_carr.empty and est_sel in (amar_carr.sort_values('Score', ascending=True).head(5)[columna_nombre].astype(str).tolist()):
         indicador = "Alumno en riesgo de reprobar"
 
-    # Referencia (grupo verde si hay; si no, promedio de la carrera)
+    # Referencia (grupo congruente si hay; si no, promedio de la carrera)
     ref_cols = [f'TOTAL_{a}' for a in AREAS]
     mask_verde = df['Categoría_UI']=='Perfil congruente a la carrera seleccionada'
     ref_df = df.loc[(df[columna_carrera]==carrera_sel) & mask_verde, ref_cols]
@@ -503,7 +503,7 @@ def render_info_individual(df: pd.DataFrame):
     def resumen_para(alumno_row: pd.Series) -> dict:
         mask = (df[columna_carrera]==carrera_sel) & (df[columna_nombre].astype(str)==str(alumno_row[columna_nombre]))
         a_vec  = df.loc[mask, [f'TOTAL_{x}' for x in AREAS]].iloc[0].astype(float)
-        diffs  = (a_vec - ref_vec) if 'ref_vec' in locals() else (a_vec - ref_vec)  # ref_vec ya arriba
+        diffs  = (a_vec - ref_vec)
         fort   = [k.replace("TOTAL_","") for k,v in diffs.items() if v>0]
         opp    = [k.replace("TOTAL_","") for k,v in diffs.items() if v<0]
         ind = "Alumno regular"
