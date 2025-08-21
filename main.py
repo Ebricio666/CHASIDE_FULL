@@ -84,7 +84,7 @@ PERFIL_CARRERAS = {
 # Nombres 'pro' (renombrado profesional de categorías)
 CAT_MAP_TO_UI = {
     'Verde': 'Perfil congruente a la carrera seleccionada',
-    'Amarillo': 'Perfil incongruente al seleccionado',
+    'Amarillo': 'Perfil incongruente a la carrera seleccionada',
     'Rojo': 'Sin perfil definido',
     'Sin sugerencia': 'Sin perfil definido',
     'No aceptable': 'Respuestas inconsistentes (≥75% iguales)',
@@ -97,7 +97,7 @@ CAT_UI_ORDER = [
 ]
 CAT_UI_COLORS = {
     'Perfil congruente a la carrera seleccionada': GREEN,
-    'Perfil incongruente al seleccionado': AMBER,
+    'Perfil incongruente a la carrera seleccionada': AMBER,
     'Sin perfil definido': GRAY,
     'Respuestas inconsistentes (≥75% iguales)': GRAY_LT,
 }
