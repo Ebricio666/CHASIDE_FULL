@@ -304,8 +304,28 @@ def render_info_general(df: pd.DataFrame):
         color_discrete_map=CAT_UI_COLORS,
         title="Distribución general por categoría"
     )
-    fig_pie.update_traces(textposition='inside', texttemplate='%{label}<br>%{percent:.1%} (%{value})')
-    st.plotly_chart(fig_pie, use_container_width=True)
+# ---- Pastel (corregido) ----
+st.subheader("🥧 Distribución general por categoría")
+resumen = (
+    df['Categoría_UI']
+     .value_counts()
+     .reindex(CAT_UI_ORDER, fill_value=0)
+     .rename_axis('Categoría_UI')
+     .reset_index(name='N')
+)
+fig_pie = px.pie(
+    resumen,
+    names='Categoría_UI',
+    values='N',
+    hole=0.35,
+    color='Categoría_UI',
+    color_discrete_map=CAT_UI_COLORS,
+    title="Distribución general por categoría"
+)
+# ✅ Solo mostrar % en el gráfico y usar descripción en la leyenda
+fig_pie.update_traces(textposition='inside', texttemplate='%{percent:.1%}')
+fig_pie.update_layout(legend_title_text="Categoría")
+st.plotly_chart(fig_pie, use_container_width=True)
 
     # ---- Barras apiladas ----
     st.subheader("🏫 Distribución por carrera y categoría")
