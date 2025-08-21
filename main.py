@@ -365,6 +365,7 @@ else:
     fig_stacked.update_traces(textposition='inside')
 
 st.plotly_chart(fig_stacked, use_container_width=True)
+
 # ---- Violines (Congruente vs Incongruente) ----
     st.subheader("🎻 Distribución de puntajes por carrera (Congruente vs Incongruente)")
     score_cols = [f'PUNTAJE_COMBINADO_{a}' for a in AREAS]
