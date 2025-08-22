@@ -89,7 +89,6 @@ st.markdown(f"""
 def load_csv(url: str) -> pd.DataFrame:
     """Carga CSV remoto. Maneja errores y limpia columnas básicas."""
     df = pd.read_csv(url)
-    # normalizar encabezados a string
     df.columns = [str(c) for c in df.columns]
     return df
 
@@ -97,25 +96,24 @@ def process_chaside(df_raw: pd.DataFrame) -> pd.DataFrame:
     """Aplica todo el pipeline CHASIDE y genera columnas auxiliares y etiquetas UI."""
     df = df_raw.copy()
 
-    # --- columnas base (ajusta si cambian en tu Google Form)
+    # --- columnas base
     columna_carrera = '¿A qué carrera desea ingresar?'
     columna_nombre  = 'Ingrese su nombre completo'
 
-    # Si no existen, error claro
     if columna_carrera not in df.columns or columna_nombre not in df.columns:
         raise ValueError(
             f"Columnas faltantes. Se requieren: '{columna_carrera}' y '{columna_nombre}'. "
             f"Columnas disponibles: {list(df.columns)}"
         )
 
-    # Por robustez, convertir a string las columnas clave
+    # normalizar a string
     df[columna_carrera] = df[columna_carrera].astype(str)
     df[columna_nombre]  = df[columna_nombre].astype(str)
 
-    # --- ítems (asumimos de F a CV = 98 ítems → columnas 5:103)
+    # --- ítems F:CV (98)
     columnas_items = df.columns[5:103]
 
-    # Sí/No → 1/0 robusto
+    # Sí/No → 1/0
     df_items = (
         df[columnas_items].astype(str).apply(lambda c: c.str.strip().str.lower())
           .replace({'sí':1,'si':1,'s':1,'1':1,'true':1,'verdadero':1,'x':1,
@@ -124,7 +122,7 @@ def process_chaside(df_raw: pd.DataFrame) -> pd.DataFrame:
     )
     df[columnas_items] = df_items
 
-    # Coincidencia (sesgo “todo Sí / todo No”)
+    # Coincidencia (sesgo)
     suma_si = df[columnas_items].sum(axis=1)
     total_items = len(columnas_items)
     pct_si = np.where(total_items==0, 0, suma_si/total_items)
@@ -157,7 +155,7 @@ def process_chaside(df_raw: pd.DataFrame) -> pd.DataFrame:
         df[f'INTERES_{a}']  = df[[col_item(i) for i in intereses_items[a]]].sum(axis=1)
         df[f'APTITUD_{a}'] = df[[col_item(i) for i in aptitudes_items[a]]].sum(axis=1)
 
-    # Ponderación fija (puedes convertir a slider si lo deseas)
+    # Ponderación fija
     peso_intereses, peso_aptitudes = 0.8, 0.2
     for a in areas:
         df[f'PUNTAJE_COMBINADO_{a}'] = df[f'INTERES_{a}']*peso_intereses + df[f'APTITUD_{a}']*peso_aptitudes
@@ -165,11 +163,11 @@ def process_chaside(df_raw: pd.DataFrame) -> pd.DataFrame:
     # Área fuerte ponderada
     df['Area_Fuerte_Ponderada'] = df.apply(lambda r: max(areas, key=lambda a: r[f'PUNTAJE_COMBINADO_{a}']), axis=1)
 
-    # Score combinado (para rankings)
+    # Score combinado (para rankings/violín)
     score_cols = [f'PUNTAJE_COMBINADO_{a}' for a in areas]
     df['Score'] = df[score_cols].max(axis=1)
 
-    # Totales por letra (INTERES + APTITUD) para comparativos individuales
+    # Totales por letra (INTERES + APTITUD) para radar/individual
     for a in areas:
         df[f'TOTAL_{a}'] = df[f'INTERES_{a}'] + df[f'APTITUD_{a}']
 
@@ -196,7 +194,6 @@ def process_chaside(df_raw: pd.DataFrame) -> pd.DataFrame:
     df['Coincidencia_Ponderada'] = df.apply(lambda r: evaluar(r['Area_Fuerte_Ponderada'], r[columna_carrera]), axis=1)
 
     def carrera_mejor(r):
-        # Si hay sesgo fuerte en respuestas, inválida
         if r['Coincidencia'] >= 0.75:
             return 'Información no aceptable'
         a = r['Area_Fuerte_Ponderada']
@@ -227,7 +224,6 @@ def process_chaside(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     # Etiqueta UI profesional
     df['Categoría_UI'] = df['Semáforo Vocacional'].map(CAT_INT_TO_UI).fillna("Sin sugerencia")
-    # Asegurar orden categórico
     df['Categoría_UI'] = pd.Categorical(df['Categoría_UI'], categories=CAT_UI_ORDER, ordered=True)
 
     return df, columna_carrera, columna_nombre
@@ -300,12 +296,13 @@ con visualizaciones claras y reportes descargables para acompañamiento académi
 
 # ============================================================
 # Módulo 2 · Información general
+# (Incluye Pastel, Barras apiladas, Violín, y Radar Verde vs Amarillo)
 # ============================================================
 def render_info_general(df: pd.DataFrame, columna_carrera: str):
     st.markdown('<div class="h1-title">Información general</div>', unsafe_allow_html=True)
-    st.caption("Resumen global por categoría y por carrera.")
+    st.caption("Resumen global por categoría, carrera y comparativas Verde vs Amarillo.")
 
-    # ---- Pastel (solo % adentro; leyenda con descripción)
+    # ---- Pastel (solo %)
     st.subheader("🥧 Distribución general por categoría")
     resumen = (
         df['Categoría_UI']
@@ -380,8 +377,96 @@ def render_info_general(df: pd.DataFrame, columna_carrera: str):
 
     st.plotly_chart(fig_stacked, use_container_width=True)
 
+    # ---- Violín: Verde vs Amarillo (Score) por carrera
+    st.subheader("🎻 Distribución de puntajes (Violin) – Verde vs Amarillo por carrera")
+    verde_ui = CAT_INT_TO_UI['Verde']
+    amarillo_ui = CAT_INT_TO_UI['Amarillo']
+    df_violin = df[df['Categoría_UI'].isin([verde_ui, amarillo_ui])].copy()
+
+    if df_violin.empty:
+        st.info("No hay estudiantes en categorías Verde o Amarillo para graficar.")
+    else:
+        fig_violin = px.violin(
+            df_violin,
+            x=columna_carrera,
+            y="Score",
+            color="Categoría_UI",
+            box=True,
+            points=False,  # sin puntos (densidad indica cantidad)
+            color_discrete_map=CAT_UI_COLORS,
+            category_orders={"Categoría_UI":[verde_ui, amarillo_ui]},
+            title="Distribución de Score por carrera (Verde vs Amarillo)"
+        )
+
+        # líneas punteadas entre carreras
+        categorias = list(df_violin[columna_carrera].unique())
+        categorias.sort()
+        for i in range(len(categorias) - 1):
+            fig_violin.add_vline(
+                x=i + 0.5,
+                line_width=1,
+                line_dash="dot",
+                line_color="gray"
+            )
+
+        fig_violin.update_layout(
+            xaxis_title="Carrera",
+            yaxis_title="Score (máximo ponderado CHASIDE)",
+            xaxis_tickangle=-30,
+            legend_title_text="Categoría"
+        )
+        st.plotly_chart(fig_violin, use_container_width=True)
+
+    # ---- Radar Verde vs Amarillo por carrera (promedio TOTAL_* por letra)
+    st.subheader("🕸️ Radar CHASIDE – Comparación Verde vs Amarillo por carrera")
+
+    carreras_disp = sorted(df[columna_carrera].dropna().unique())
+    if not carreras_disp:
+        st.info("No hay carreras para mostrar en el radar.")
+        return
+
+    carrera_sel = st.selectbox("Elige una carrera para comparar:", carreras_disp)
+    sub = df[df[columna_carrera] == carrera_sel]
+    sub = sub[sub['Categoría_UI'].isin([verde_ui, amarillo_ui])]
+
+    areas = ['C','H','A','S','I','D','E']
+    if sub.empty or sub['Categoría_UI'].nunique() < 2:
+        st.warning("No hay datos suficientes de Verde y Amarillo en esta carrera.")
+    else:
+        # promedios por letra (INTERES + APTITUD)
+        for a in areas:
+            if f'TOTAL_{a}' not in sub.columns:
+                sub[f'TOTAL_{a}'] = sub[f'INTERES_{a}'] + sub[f'APTITUD_{a}']
+
+        prom = sub.groupby('Categoría_UI')[[f'TOTAL_{a}' for a in areas]].mean()
+        prom_ren = prom.rename(columns={f'TOTAL_{a}':a for a in areas}).reset_index()
+
+        fig_radar = px.line_polar(
+            prom_ren.melt(id_vars='Categoría_UI', value_vars=areas, var_name='Área', value_name='Promedio'),
+            r='Promedio',
+            theta='Área',
+            color='Categoría_UI',
+            line_close=True,
+            markers=True,
+            color_discrete_map=CAT_UI_COLORS,
+            category_orders={'Categoría_UI':[verde_ui, amarillo_ui]},
+            title=f"Perfil CHASIDE – {carrera_sel} (Verde vs Amarillo)"
+        )
+        fig_radar.update_traces(fill='toself', opacity=0.75)
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+        # Top 3 brechas (Verde - Amarillo)
+        diffs = (prom.loc[verde_ui] - prom.loc[amarillo_ui]).rename(index=lambda x: x.replace("TOTAL_",""))
+        diffs = diffs.sort_values(ascending=False)
+        top3 = diffs.head(3)
+
+        st.markdown("**Áreas a reforzar (donde *Amarillo* está más bajo):**")
+        for letra, delta in top3.items():
+            st.markdown(f"- **{letra}** (Δ = {delta:.2f}) — {DESC_CHASIDE[letra]}")
+
 # ============================================================
 # Módulo 3 · Información particular del estudiantado
+# (Reporte ejecutivo individual + descargas)
 # ============================================================
 def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombre: str):
     st.markdown('<div class="h1-title">Información particular del estudiantado</div>', unsafe_allow_html=True)
@@ -415,9 +500,11 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
     n_cat = int((d_carrera['Categoría_UI'] == cat_ui).sum())
     pct_cat = (n_cat / total_carrera * 100) if total_carrera else 0.0
 
-    # Indicador de riesgo (top5 verde / bottom5 amarillo; se usa categoría interna)
-    verde_carr = d_carrera[d_carrera['Categoría_UI'] == CAT_INT_TO_UI['Verde']].copy()
-    amar_carr  = d_carrera[d_carrera['Categoría_UI'] == CAT_INT_TO_UI['Amarillo']].copy()
+    # Indicador de riesgo
+    verde_ui = CAT_INT_TO_UI['Verde']
+    amarillo_ui = CAT_INT_TO_UI['Amarillo']
+    verde_carr = d_carrera[d_carrera['Categoría_UI'] == verde_ui].copy()
+    amar_carr  = d_carrera[d_carrera['Categoría_UI'] == amarillo_ui].copy()
 
     indicador = "Alumno regular"
     if not verde_carr.empty and est_sel in (verde_carr.sort_values('Score', ascending=False).head(5)[columna_nombre].astype(str).tolist()):
@@ -425,11 +512,11 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
     if not amar_carr.empty and est_sel in (amar_carr.sort_values('Score', ascending=True).head(5)[columna_nombre].astype(str).tolist()):
         indicador = "Alumno en riesgo de reprobar"
 
-    # Referencia para comparativos (Promedio de VERDE de la carrera; si no hay, promedio general de la carrera)
+    # Referencia para comparativos
     areas = ['C','H','A','S','I','D','E']
     ref_cols = [f'TOTAL_{a}' for a in areas]
     mask_carr = df[columna_carrera] == carrera_sel
-    mask_verde = df['Categoría_UI'] == CAT_INT_TO_UI['Verde']
+    mask_verde = df['Categoría_UI'] == verde_ui
     ref_df = df.loc[mask_carr & mask_verde, ref_cols] if not df.loc[mask_carr & mask_verde, ref_cols].empty else df.loc[mask_carr, ref_cols]
     ref_vec = ref_df.mean().astype(float)
     al_vec  = df.loc[alumno_mask, ref_cols].iloc[0].astype(float)
@@ -448,7 +535,6 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
     with c4:
         st.markdown(f"<div class='card kpi'><b>Nº en esta categoría</b><br>{n_cat} (<span style='font-weight:700'>{pct_cat:.1f}%</span>)</div>", unsafe_allow_html=True)
 
-    # Indicador de riesgo
     badge_color = {"Joven promesa": GREEN, "Alumno en riesgo de reprobar": AMBER}.get(indicador, SLATE)
     st.markdown(
         f"<span class='badge' style='background:rgba(20,184,166,.12);color:{badge_color}'>Indicador: {indicador}</span>",
@@ -456,7 +542,6 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
     )
     st.divider()
 
-    # Fortalezas / Áreas de oportunidad (texto + descripción)
     st.markdown("### ✅ Fortalezas destacadas")
     if fortalezas.empty:
         st.info("No se observan dimensiones por encima del promedio de referencia del grupo.")
@@ -479,10 +564,8 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
 
     st.divider()
 
-    # Coherencia y carreras afines (según área fuerte del alumno)
     st.markdown("### 🎯 Coherencia vocacional y afinidades")
     area_fuerte = al['Area_Fuerte_Ponderada']
-    # mismas carreras/fortalezas que en el procesamiento
     perfil_carreras = {
         'Arquitectura': {'Fuerte': ['A','I','C']},
         'Contador Público': {'Fuerte': ['C','D']},
@@ -519,7 +602,7 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
 
     st.divider()
 
-    # Descargas (individual / carrera)
+    # Descargas
     def resumen_para(alumno_row: pd.Series) -> dict:
         a_mask = (df[columna_carrera]==carrera_sel) & (df[columna_nombre].astype(str)==str(alumno_row[columna_nombre]))
         a_vec  = df.loc[a_mask, [f'TOTAL_{x}' for x in areas]].iloc[0].astype(float)
@@ -548,6 +631,13 @@ def render_info_individual(df: pd.DataFrame, columna_carrera: str, columna_nombr
             "Fortalezas (letras)": ", ".join(fort),
             "Áreas de oportunidad (letras)": ", ".join(opp),
         }
+
+    # Para descargas necesitamos ref_vec (ya calculada arriba)
+    ref_cols = [f'TOTAL_{a}' for a in areas]
+    mask_carr = df[columna_carrera] == carrera_sel
+    mask_verde = df['Categoría_UI'] == CAT_INT_TO_UI['Verde']
+    ref_df = df.loc[mask_carr & mask_verde, ref_cols] if not df.loc[mask_carr & mask_verde, ref_cols].empty else df.loc[mask_carr, ref_cols]
+    ref_vec = ref_df.mean().astype(float)
 
     col_a, col_b = st.columns([1.2, 1])
     with col_a:
@@ -594,7 +684,6 @@ def main():
         index=0
     )
 
-    # Fuente de datos (URL Google Sheets como CSV export)
     st.sidebar.markdown("---")
     url = st.sidebar.text_input(
         "URL de Google Sheets (CSV export)",
@@ -605,7 +694,6 @@ def main():
         render_presentacion()
         return
 
-    # Para módulos 2 y 3 se requieren datos
     try:
         df_raw = load_csv(url)
         df_proc, columna_carrera, columna_nombre = process_chaside(df_raw)
