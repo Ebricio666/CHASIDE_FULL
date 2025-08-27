@@ -19,7 +19,7 @@ GREEN="#22c55e"; AMBER="#f59e0b"; RED="#ef4444"; GRAY="#6b7280"; BLUE="#3b82f6"
 CAT_INT_ORDER = ["Verde", "Amarillo", "Rojo", "No aceptable"]
 CAT_INT_TO_UI = {
     "Verde":        "Perfil congruente con la carrera seleccionada",
-    "Amarillo":     "Perfil incongruente con la carrera seleccionada",
+    "Amarillo":     "Perfil incongruente al seleccionado",
     "Rojo":         "Perfil no definido",
     "No aceptable": "Respuestas no válidas (sesgo de respuesta)"
 }
@@ -211,7 +211,7 @@ def process_chaside(df_raw: pd.DataFrame):
         if diag_val == 'Información no aceptable': return 'No aceptable'
         if diag_val == 'Sin sugerencia clara':     return 'Sin sugerencia'
         if coh_val == 'Coherente':                  return 'Verde'
-        if coh_val == 'Neutral':                    return ''
+        if coh_val == 'Neutral':                    return 'Amarillo'
         if coh_val == 'Requiere Orientación':       return 'Rojo'
         return 'Sin sugerencia'
 
@@ -277,7 +277,7 @@ usando la escala CHASIDE y visualizaciones claras para estudiantes, familias y d
 
 def render_info_general(df: pd.DataFrame, col_car: str):
     st.markdown('<div class="h1-title">Información general</div>', unsafe_allow_html=True)
-    st.caption("Resumen global por categoría, carrera y comparativas elección de carrera acertada vs no acertada.")
+    st.caption("Resumen global por categoría, carrera y comparativas Verde vs Amarillo.")
 
     # Pastel (solo %)
     st.subheader("🥧 Distribución general por categoría")
@@ -509,8 +509,8 @@ def render_equipo():
     st.markdown("""
 Este proyecto fue elaborado por el siguiente equipo interdisciplinario:
 
-- **Dra. Elena Elsa Bricio Barrios** – Modelos analíticos y Análisis de datos cualitativos  
-- **Dr. Santiago Arceo-Díaz** – Modelos estocásticos y Análisis de datos cuantitativos  
+- **Dra. Elena Elsa Bricio Barrios** – Especialista en Psicología Educativa  
+- **Dr. Santiago Arceo-Díaz** – Investigador en Ciencias Médicas y Datos  
 - **Psic. Martha Cecilia Ramírez Guzmán** – Psicóloga orientada al desarrollo vocacional
 """)
     st.caption("Tecnológico Nacional de México – Instituto Tecnológico de Colima")
