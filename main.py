@@ -334,14 +334,14 @@ def render_info_general(df: pd.DataFrame, col_car: str):
         st.plotly_chart(fig_v, use_container_width=True)
 
 # ---- Radar Verde vs Amarillo por carrera (promedio TOTAL_* por letra)
-st.subheader("🕸️ Radar CHASIDE – Comparación perfil correcto vs incorrecto por carrera")
+st.subheader("🕸️ Radar CHASIDE – Comparación Verde vs Amarillo por carrera")
 
-carreras_disp = sorted(df[columna_carrera].dropna().unique())
+carreras_disp = sorted(df[columna_carrera].dropna().astype(str).unique())
 if not carreras_disp:
     st.info("No hay carreras para mostrar en el radar.")
 else:
     carrera_sel = st.selectbox("Elige una carrera para comparar:", carreras_disp)
-    sub = df[df[columna_carrera] == carrera_sel]
+    sub = df[df[columna_carrera].astype(str) == carrera_sel]
     sub = sub[sub['Categoría_UI'].isin([verde_ui, amarillo_ui])]
 
     areas = ['C','H','A','S','I','D','E']
