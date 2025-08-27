@@ -509,8 +509,8 @@ def render_equipo():
     st.markdown("""
 Este proyecto fue elaborado por el siguiente equipo interdisciplinario:
 
-- **Dra. Elena Elsa Bricio Barrios** – Especialista en Psicología Educativa  
-- **Dr. Santiago Arceo-Díaz** – Investigador en Ciencias Médicas y Datos  
+- **Dra. Elena Elsa Bricio Barrios** – Modelado analítico y Análisis cualitativo de bases de datos  
+- **Dr. Santiago Arceo-Díaz** – Modelado estocástico y Análisis cuantitativo de bases de datos  
 - **Psic. Martha Cecilia Ramírez Guzmán** – Psicóloga orientada al desarrollo vocacional
 """)
     st.caption("Tecnológico Nacional de México – Instituto Tecnológico de Colima")
