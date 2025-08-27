@@ -333,29 +333,50 @@ def render_info_general(df: pd.DataFrame, col_car: str):
                             xaxis_tickangle=-30, legend_title_text="Categoría")
         st.plotly_chart(fig_v, use_container_width=True)
 
-    # Radar Verde vs Amarillo
-    st.subheader("🕸️ Radar CHASIDE – Comparación Verde vs Amarillo por carrera")
-    carreras = sorted(df[col_car].dropna().astype(str).unique())
-    if not carreras:
-        st.info("No hay carreras para mostrar en el radar.")
-        return
-    carrera_sel = st.selectbox("Elige una carrera para comparar:", carreras)
-    sub = df[(df[col_car].astype(str)==carrera_sel) & (df['Categoría_UI'].isin([verde_ui,amarillo_ui]))]
+# ---- Radar Verde vs Amarillo por carrera (promedio TOTAL_* por letra)
+st.subheader("🕸️ Radar CHASIDE – Comparación perfil correcto vs incorrecto por carrera")
+
+carreras_disp = sorted(df[columna_carrera].dropna().unique())
+if not carreras_disp:
+    st.info("No hay carreras para mostrar en el radar.")
+else:
+    carrera_sel = st.selectbox("Elige una carrera para comparar:", carreras_disp)
+    sub = df[df[columna_carrera] == carrera_sel]
+    sub = sub[sub['Categoría_UI'].isin([verde_ui, amarillo_ui])]
+
+    areas = ['C','H','A','S','I','D','E']
+    AREA_LABELS = {
+        "C": "C – Administrativo",
+        "H": "H – Humanidades y Sociales",
+        "A": "A – Artístico",
+        "S": "S – Ciencias de la Salud",
+        "I": "I – Enseñanzas Técnicas",
+        "D": "D – Defensa y Seguridad",
+        "E": "E – Ciencias Experimentales"
+    }
 
     if sub.empty or sub['Categoría_UI'].nunique() < 2:
         st.warning("No hay datos suficientes de Verde y Amarillo en esta carrera.")
     else:
-        tot_cols = [f'TOTAL_{a}' for a in AREAS]
-        prom = sub.groupby('Categoría_UI')[tot_cols].mean()
-        prom_ren = prom.rename(columns={f'TOTAL_{a}':a for a in AREAS}).reset_index()
-        fig_r = px.line_polar(prom_ren.melt(id_vars='Categoría_UI', value_vars=AREAS,
-                                            var_name='Área', value_name='Promedio'),
-                              r='Promedio', theta='Área', color='Categoría_UI',
-                              line_close=True, markers=True, color_discrete_map=CAT_UI_COLORS,
-                              category_orders={'Categoría_UI':[verde_ui,amarillo_ui]},
-                              title=f"Perfil CHASIDE – {carrera_sel} (Verde vs Amarillo)")
-        fig_r.update_traces(fill='toself', opacity=0.75)
-        st.plotly_chart(fig_r, use_container_width=True)
+        prom = sub.groupby('Categoría_UI')[[f'TOTAL_{a}' for a in areas]].mean()
+        prom_ren = prom.rename(columns={f"TOTAL_{a}":AREA_LABELS[a] for a in areas}).reset_index()
+
+        fig_radar = px.line_polar(
+            prom_ren.melt(id_vars='Categoría_UI',
+                          value_vars=list(AREA_LABELS.values()),
+                          var_name='Área',
+                          value_name='Promedio'),
+            r='Promedio',
+            theta='Área',
+            color='Categoría_UI',
+            line_close=True,
+            markers=True,
+            color_discrete_map=CAT_UI_COLORS,
+            category_orders={'Categoría_UI':[verde_ui, amarillo_ui]},
+            title=f"Perfil CHASIDE – {carrera_sel} (Verde vs Amarillo)"
+        )
+        fig_radar.update_traces(fill='toself', opacity=0.75)
+        st.plotly_chart(fig_radar, use_container_width=True)
 
         diffs = (prom.loc[verde_ui] - prom.loc[amarillo_ui])
         diffs.index = [i.replace("TOTAL_","") for i in diffs.index]
