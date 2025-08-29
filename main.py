@@ -509,9 +509,9 @@ def render_equipo():
     st.markdown("""
 Este proyecto fue elaborado por el siguiente equipo interdisciplinario:
 
-- **Dra. Elena Elsa Bricio Barrios** – Especialista en Psicología Educativa  
-- **Dr. Santiago Arceo-Díaz** – Investigador en Ciencias Médicas y Datos  
-- **Psic. Martha Cecilia Ramírez Guzmán** – Psicóloga orientada al desarrollo vocacional
+- **Dra. Elena Elsa Bricio Barrios** – AÑADIR SEMBLANZA  
+- **Dr. Santiago Arceo-Díaz** – AÑADIR SEMBLANZA  
+- **Psic. Martha Cecilia Ramírez Guzmán** – AÑADIR SEMBLANZA
 """)
     st.caption("Tecnológico Nacional de México – Instituto Tecnológico de Colima")
 
